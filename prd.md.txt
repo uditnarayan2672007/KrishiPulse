@@ -1,0 +1,318 @@
+KrishiPulse
+Product Requirements Document (PRD)
+Project: Smart Agriculture and Water Management System Using IoT and Machine Learning
+Version: 1.1
+Status: Development Planning
+________________________________________
+1. Product Overview
+KrishiPulse is an intelligent agriculture and water management platform that uses Internet of Things (IoT) sensors and Machine Learning (ML) to monitor soil conditions, manage irrigation, and optimize water usage.
+The platform will collect real-time agricultural data through ESP32-connected sensors and display it on a web-based dashboard. Farmers will be able to monitor soil moisture, temperature, humidity, water availability, and irrigation activity.
+The system will also provide intelligent irrigation recommendations using Machine Learning.
+2. Problem Statement
+Traditional agricultural practices often lead to excessive water consumption, inefficient irrigation, and poor resource management. Farmers may not have access to real-time information about soil conditions and crop water requirements.
+KrishiPulse aims to address these problems through automated monitoring, intelligent irrigation recommendations, and remote water management.
+3. Project Objectives
+•	Monitor soil moisture, temperature, and humidity in real time.
+•	Reduce unnecessary water consumption.
+•	Provide manual and automatic irrigation control.
+•	Use Machine Learning to recommend irrigation.
+•	Provide a centralized web dashboard.
+•	Store and analyze historical agricultural data.
+•	Enable remote monitoring and control through the internet.
+4. Target Users
+•	Farmers
+•	Agricultural students
+•	Agricultural researchers
+•	Smart farming enthusiasts
+•	Agricultural institutions
+5. Technology Stack
+Component	Technology
+Frontend	React.js
+UI Styling	Tailwind CSS
+Backend	Node.js
+API	REST API
+Frontend and API Deployment	Vercel
+Authentication	Supabase Auth
+Main Database	MongoDB Atlas
+Hardware Controller	ESP32
+Hardware Programming	Arduino IDE / C++
+Communication	HTTPS REST API
+Machine Learning	Python, Scikit-learn
+Charts and Analytics	Recharts
+Version Control	GitHub
+Important database decision: Supabase will be used only for authentication. MongoDB Atlas will store all KrishiPulse application data, including devices, sensor readings, pump commands, irrigation history, and ML predictions. Supabase Database will not be used.
+6. System Architecture
+The platform will follow a client-server architecture.
+Software Architecture
+1.	React.js provides the user interface.
+2.	Supabase Auth handles user registration, login, and authentication sessions.
+3.	Node.js API routes handle application logic and requests.
+4.	MongoDB Atlas stores and retrieves application data.
+5.	Vercel hosts the frontend and serverless backend API routes.
+6.	The ESP32 communicates with the backend through secure HTTPS requests.
+7.	The Machine Learning module generates irrigation recommendations.
+Hardware-to-Software Communication
+ESP32 → Wi-Fi / Internet → Node.js REST API → MongoDB Atlas → React Dashboard
+For irrigation control:
+React Dashboard → Node.js API → MongoDB Command Storage → ESP32 Polling → Relay → Water Pump
+The ESP32 will periodically check for pending commands and acknowledge completed operations.
+7. Core Application Modules
+7.1 Authentication Module
+Use Supabase Auth for:
+•	User registration.
+•	User login.
+•	Logout.
+•	Session management.
+•	Protected dashboard access.
+•	Password recovery.
+The backend must verify the Supabase-issued access token before allowing protected operations.
+7.2 Dashboard Module
+The main dashboard will display:
+•	Soil moisture percentage.
+•	Temperature.
+•	Humidity.
+•	Water tank availability.
+•	Pump status.
+•	ESP32 connection status.
+•	Last sensor update.
+•	Irrigation mode.
+•	Machine Learning recommendation.
+7.3 Device Management Module
+•	Register an ESP32 device.
+•	Assign a unique device ID.
+•	View device connection status.
+•	Display the last communication time.
+•	Secure communication between the ESP32 and backend.
+7.4 Sensor Monitoring Module
+The system will receive readings from:
+•	Soil moisture sensor.
+•	Temperature sensor.
+•	Humidity sensor.
+•	Water-level sensor or float switch.
+Sensor readings will be validated and stored in MongoDB Atlas with timestamps.
+7.5 Irrigation Control Module
+Two operating modes will be available:
+Manual Mode
+•	User can request pump ON or OFF from the dashboard.
+•	The ESP32 receives the command.
+•	The device executes the command if safety conditions permit.
+•	The device sends an acknowledgement to the backend.
+Automatic Mode
+•	The system evaluates soil moisture and other available conditions.
+•	Irrigation recommendations are generated.
+•	The pump can operate automatically according to configured rules and safety limits.
+The system must distinguish between a requested pump operation and a confirmed physical pump operation.
+7.6 Machine Learning Module
+The ML module will analyze agricultural data and provide irrigation recommendations.
+Possible input features:
+•	Soil moisture.
+•	Temperature.
+•	Humidity.
+•	Crop type, when available.
+•	Historical sensor readings.
+Possible outputs:
+•	Irrigation required or not required.
+•	Irrigation recommendation.
+•	Suggested action.
+•	Model version and prediction timestamp.
+The initial model can use Python and Scikit-learn. A Decision Tree or Random Forest model may be evaluated using a suitable labelled dataset.
+7.7 Analytics and History Module
+The application will maintain:
+•	Historical soil moisture readings.
+•	Temperature and humidity history.
+•	Water availability records.
+•	Pump activation history.
+•	Irrigation duration.
+•	ML prediction history.
+Charts will be implemented using Recharts.
+8. Backend API Requirements
+The Node.js backend will provide REST API endpoints.
+Method	Endpoint	Purpose
+POST	/api/device/register	Register a device
+POST	/api/sensor	Receive sensor readings
+GET	/api/dashboard	Fetch dashboard data
+POST	/api/pump	Request pump operation
+GET	/api/command	ESP32 checks pending commands
+POST	/api/pump-ack	Receive command acknowledgement
+GET	/api/device/status	Check device status
+GET	/api/analytics	Fetch historical analytics
+All protected user-facing endpoints must verify the Supabase Auth access token.
+Device-facing endpoints must use separate device credentials or tokens. Device credentials must never be exposed in frontend code.
+9. MongoDB Database Structure
+MongoDB Atlas will be the primary database.
+Suggested collections:
+9.1 users
+Stores application-specific user profile information.
+Fields:
+•	_id
+•	authUserId
+•	fullName
+•	email
+•	role
+•	createdAt
+The authentication credentials themselves remain managed by Supabase Auth.
+9.2 devices
+Stores registered hardware devices.
+Fields:
+•	_id
+•	deviceId
+•	deviceName
+•	deviceTokenHash
+•	connectionStatus
+•	lastSeen
+•	createdAt
+9.3 sensor_readings
+Stores sensor information.
+Fields:
+•	_id
+•	deviceId
+•	soilMoisture
+•	temperature
+•	humidity
+•	waterAvailable
+•	recordedAt
+9.4 pump_commands
+Stores irrigation commands.
+Fields:
+•	_id
+•	deviceId
+•	command
+•	operatingMode
+•	commandStatus
+•	createdAt
+•	expiresAt
+•	acknowledgedAt
+9.5 irrigation_history
+Stores irrigation activity.
+Fields:
+•	_id
+•	deviceId
+•	startTime
+•	endTime
+•	duration
+•	operatingMode
+9.6 ml_predictions
+Stores Machine Learning results.
+Fields:
+•	_id
+•	deviceId
+•	irrigationRequired
+•	recommendation
+•	modelVersion
+•	createdAt
+MongoDB indexes should be created for frequently queried fields such as deviceId, recordedAt, and commandStatus.
+10. UI/UX Requirements
+The application should have a modern, professional, futuristic, and agriculture-inspired interface.
+Design requirements:
+•	Green and nature-inspired color palette.
+•	Clean dashboard layout.
+•	Responsive mobile and desktop design.
+•	Sensor monitoring cards.
+•	Interactive charts.
+•	Manual and automatic irrigation controls.
+•	Device connection indicators.
+•	ML recommendation section.
+•	Loading, error, and empty states.
+•	Clear distinction between demo data and real hardware data.
+11. Security Requirements
+•	Use Supabase Auth for user authentication.
+•	Verify authentication tokens on protected backend routes.
+•	Store MongoDB connection strings in Vercel environment variables.
+•	Never expose database credentials in frontend code.
+•	Use separate credentials for ESP32 devices.
+•	Validate incoming sensor readings.
+•	Restrict device access to authorized operations.
+•	Use HTTPS for communication.
+•	Implement command expiry and acknowledgement.
+•	Apply rate limiting to sensitive endpoints.
+Hardware Safety
+•	The pump must not be powered directly from an ESP32 GPIO pin.
+•	Use a suitable relay or driver and separate pump power supply.
+•	Include water-level protection.
+•	Add a maximum pump runtime.
+•	Ensure the pump defaults to OFF during reset or unsafe conditions.
+•	Keep all electrical connections protected from water.
+12. Development Roadmap
+Phase 1: Frontend Development
+•	Create the React.js application.
+•	Design the KrishiPulse dashboard.
+•	Build navigation and dashboard components.
+•	Add simulated sensor readings.
+•	Implement responsive UI.
+Phase 2: Authentication
+•	Create a Supabase project.
+•	Configure Supabase Auth.
+•	Implement registration and login.
+•	Protect dashboard routes.
+Phase 3: Backend Development
+•	Set up Node.js API routes.
+•	Connect MongoDB Atlas.
+•	Create database collections.
+•	Implement sensor ingestion APIs.
+•	Implement irrigation command APIs.
+•	Implement device authentication.
+Phase 4: Machine Learning
+•	Prepare a suitable dataset.
+•	Train and evaluate an ML model.
+•	Integrate irrigation recommendations.
+•	Store predictions in MongoDB.
+Phase 5: Deployment
+•	Push the project to GitHub.
+•	Deploy the application on Vercel.
+•	Configure environment variables.
+•	Connect the production MongoDB Atlas database.
+•	Configure Supabase Auth URLs and allowed redirect URLs.
+•	Test APIs using simulated device requests.
+Phase 6: Hardware Integration
+•	Program ESP32 using Arduino IDE.
+•	Connect the sensors.
+•	Configure Wi-Fi connectivity.
+•	Send sensor readings to the deployed API.
+•	Receive pump commands.
+•	Send command acknowledgements.
+•	Test the water pump and safety features.
+Phase 7: Final Testing
+•	Test user authentication.
+•	Test sensor data transmission.
+•	Test manual irrigation.
+•	Test automatic irrigation.
+•	Test ML recommendations.
+•	Test device disconnection and recovery.
+•	Verify historical data and analytics.
+13. Minimum Viable Product (MVP)
+The first working version should include:
+1.	User registration and login.
+2.	A deployed React dashboard.
+3.	Supabase Auth integration.
+4.	MongoDB Atlas database connection.
+5.	Simulated sensor data.
+6.	Sensor monitoring dashboard.
+7.	Manual pump control.
+8.	Device communication APIs.
+9.	Basic irrigation recommendation.
+10.	Hardware integration with ESP32.
+14. Future Enhancements
+•	Weather API integration.
+•	Multiple crop support.
+•	Multiple field and device management.
+•	Advanced ML models.
+•	Water consumption analytics.
+•	Mobile application.
+•	MQTT-based communication.
+•	Crop-specific irrigation scheduling.
+15. Project Success Criteria
+KrishiPulse will be considered successful when:
+•	Users can register and log in securely.
+•	The application is deployed and accessible online.
+•	Sensor data can be stored and displayed.
+•	MongoDB Atlas stores the application's operational data.
+•	ESP32 can communicate with the deployed backend.
+•	Users can request irrigation operations remotely.
+•	The physical pump responds to valid commands.
+•	Safety conditions prevent unsafe pump operation.
+•	ML recommendations are displayed and stored.
+•	Historical sensor and irrigation data can be viewed.
+16. Final Product Vision
+KrishiPulse aims to make agriculture smarter, more efficient, and more sustainable by combining IoT, Machine Learning, and web technologies.
+The ultimate goal is to help farmers make better irrigation decisions, reduce water wastage, and improve agricultural resource management through an affordable smart farming solution.
+

@@ -1,0 +1,71 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+body {
+  background-color: #050608;
+  color: #e2e8f0;
+  font-family: 'Inter', system-ui, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  background-image: 
+    radial-gradient(ellipse 60% 50% at 50% -10%, rgba(255, 0, 59, 0.12), transparent 70%),
+    radial-gradient(circle at 100% 100%, rgba(148, 163, 184, 0.04), transparent 50%),
+    linear-gradient(to bottom, #050608, #0a0c10);
+  background-attachment: fixed;
+}
+
+/* Chrome Silver metallic text utility */
+.text-chrome-metallic {
+  background: linear-gradient(180deg, #ffffff 0%, #e2e8f0 45%, #94a3b8 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+.text-laser-crimson {
+  color: #ff003b;
+  text-shadow: 0 0 15px rgba(255, 0, 59, 0.5);
+}
+
+.border-chrome-metallic {
+  border-color: rgba(203, 213, 225, 0.18);
+}
+
+/* Custom scrollbars */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: #050608;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #232838;
+  border-radius: 3px;
+  border: 1px solid rgba(203, 213, 225, 0.1);
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #ff003b;
+  box-shadow: 0 0 10px rgba(255, 0, 59, 0.5);
+}
+
+/* Laser Crimson Pulse */
+@keyframes laserPulse {
+  0%, 100% {
+    opacity: 1;
+    transform: scale(1);
+    box-shadow: 0 0 15px rgba(255, 0, 59, 0.6);
+  }
+  50% {
+    opacity: 0.6;
+    transform: scale(1.15);
+    box-shadow: 0 0 25px rgba(255, 0, 59, 0.9);
+  }
+}
+
+.animate-laser-pulse {
+  animation: laserPulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}

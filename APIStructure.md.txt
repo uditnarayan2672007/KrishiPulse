@@ -1,0 +1,454 @@
+Api structure : 
+
+For KrishiPulse, we will use Node.js REST APIs hosted on Vercel, MongoDB Atlas for database storage, and Supabase Auth for authentication only.
+The API layer will connect four major parts:
+1.	React.js frontend.
+2.	Node.js backend.
+3.	MongoDB Atlas database.
+4.	ESP32 hardware and Python ML service.
+I'll structure this like a professional API specification so you can use it directly during development.
+1. API architecture
+React.js Frontend
+Dashboard · Login · Analytics · Pump controls
+HTTPS REST API
+Node.js Backend – Vercel
+Authentication · Validation · Business logic · APIs
+Supabase Auth
+User authentication
+MongoDB Atlas
+Application database
+ESP32 Hardware
+Sensor readings · Pump commands · Acknowledgements
+Python ML Service
+Irrigation prediction and recommendations
+2. Base API URL
+During local development:
+http://localhost:3000/api
+After deployment:
+https://your-project.vercel.app/api
+The deployed URL above is a placeholder. Vercel will provide your actual URL.
+All API requests and responses will use JSON.
+3. Complete API endpoint list
+Here is the proposed endpoint inventory.
+Module	Method	Endpoint
+User profile	POST	/api/users/sync
+User profile	GET	/api/users/me
+Device	POST	/api/device/register
+Device	GET	/api/device
+Device	GET	/api/device/:deviceId
+Device	DELETE	/api/device/:deviceId
+Sensor	POST	/api/sensor
+Sensor	GET	/api/sensor/latest
+Sensor	GET	/api/sensor/history
+Dashboard	GET	/api/dashboard
+Pump	POST	/api/pump
+Pump	GET	/api/pump/status
+Command	GET	/api/command
+Pump acknowledgement	POST	/api/pump-ack
+Irrigation history	GET	/api/irrigation/history
+Analytics	GET	/api/analytics
+ML	POST	/api/ml/predict
+ML	GET	/api/ml/history
+Health	GET	/api/health
+The :deviceId portion is a dynamic URL parameter.
+For example:
+/api/device/KP001
+We will implement these endpoints progressively. The following sections specify their expected behavior.
+4. Authentication and User APIs
+Supabase will manage registration, login, passwords, and sessions. We do not need to create separate Node.js password-registration or password-login endpoints.
+The frontend will use the Supabase client SDK directly for authentication.
+Method	Endpoint	Purpose
+POST	/api/users/sync	Create or update application profile
+GET	/api/users/me	Get authenticated user profile
+4.1 POST /api/users/sync
+Purpose: Save the user's application profile in MongoDB after successful Supabase authentication.
+Example request:
+{
+  "fullName": "KrishiPulse User"
+}
+The backend obtains the authenticated user's ID and email from the verified Supabase token rather than trusting user-supplied identity fields.
+Example response:
+{
+  "success": true,
+  "message": "User profile synchronized",
+  "user": {
+    "authUserId": "supabase-user-id",
+    "fullName": "KrishiPulse User"
+  }
+}
+4.2 GET /api/users/me
+Returns the current user's profile.
+Authentication: Required.
+5. Device Management APIs
+These endpoints manage ESP32 devices registered with KrishiPulse.
+Method	Endpoint	Purpose
+POST	/api/device/register	Register ESP32
+GET	/api/device	List user's devices
+GET	/api/device/:deviceId	Get device details
+DELETE	/api/device/:deviceId	Remove a device
+5.1 POST /api/device/register
+Purpose: Register a new ESP32 device.
+Example request:
+{
+  "deviceName": "Farm Sensor 01",
+  "deviceId": "KP001"
+}
+Example response:
+{
+  "success": true,
+  "message": "Device registered successfully",
+  "device": {
+    "deviceId": "KP001",
+    "deviceName": "Farm Sensor 01",
+    "connectionStatus": "OFFLINE"
+  }
+}
+The backend must associate the device with the authenticated user and issue a unique device credential securely. The credential should be shown only when provisioned, stored securely on the ESP32, and never returned in normal device-list responses.
+6. Sensor APIs
+These are among the most important APIs because they connect the physical sensors to the web application.
+Method	Endpoint	Used by
+POST	/api/sensor	ESP32
+GET	/api/sensor/latest	React
+GET	/api/sensor/history	React
+6.1 POST /api/sensor
+ESP32 → Backend
+Purpose: Receive sensor readings and save them in MongoDB.
+Example request:
+{
+  "deviceId": "KP001",
+  "soilMoisture": 35,
+  "temperature": 30,
+  "humidity": 60,
+  "waterAvailable": true
+}
+Example response:
+{
+  "success": true,
+  "message": "Sensor data received successfully",
+  "readingId": "reading_123",
+  "recordedAt": "2026-11-21T10:00:00Z"
+}
+Authentication: Device credential required.
+The backend should validate numerical ranges, timestamp information, and device authorization before storing readings.
+6.2 GET /api/sensor/latest
+Purpose: Get the most recent sensor reading for a device.
+Example request:
+GET /api/sensor/latest?deviceId=KP001
+Example response:
+{
+  "success": true,
+  "data": {
+    "soilMoisture": 35,
+    "temperature": 30,
+    "humidity": 60,
+    "waterAvailable": true,
+    "recordedAt": "2026-11-21T10:00:00Z"
+  }
+}
+Authentication: User token required. The device must belong to that user.
+6.3 GET /api/sensor/history
+Purpose: Retrieve historical sensor readings for charts.
+Example:
+GET /api/sensor/history?deviceId=KP001&range=24h
+Supported ranges can include:
+•	1h
+•	24h
+•	7d
+•	30d
+Use pagination or aggregation to avoid returning thousands of records in one response.
+7. Dashboard API
+GET /api/dashboard
+Main dashboard API
+Purpose: Fetch the latest information needed for the KrishiPulse dashboard.
+Example request:
+GET /api/dashboard?deviceId=KP001
+Example response:
+{
+  "success": true,
+  "dashboard": {
+    "deviceId": "KP001",
+    "soilMoisture": 35,
+    "temperature": 30,
+    "humidity": 60,
+    "waterAvailable": true,
+    "pumpStatus": "OFF",
+    "operatingMode": "AUTO",
+    "connectionStatus": "ONLINE",
+    "lastUpdated": "2026-11-21T10:00:00Z"
+  },
+  "recommendation": {
+    "irrigationRequired": true,
+    "message": "Soil moisture is below the configured threshold"
+  }
+}
+This is an illustrative response. The actual dashboard will combine the latest sensor reading, device heartbeat, acknowledged pump status, operating mode, and latest recommendation.
+8. Pump Control APIs
+These APIs enable the farmer to operate the water pump through the dashboard.
+Method	Endpoint	Purpose
+POST	/api/pump	Create pump command
+GET	/api/pump/status	Get confirmed pump status
+GET	/api/command	ESP32 fetches pending command
+POST	/api/pump-ack	ESP32 acknowledges command
+8.1 POST /api/pump
+React → Backend
+Purpose: Request manual pump operation.
+Example request:
+{
+  "deviceId": "KP001",
+  "command": "PUMP_ON",
+  "mode": "MANUAL"
+}
+Example response:
+{
+  "success": true,
+  "message": "Pump command created",
+  "command": {
+    "commandId": "CMD001",
+    "command": "PUMP_ON",
+    "status": "PENDING"
+  }
+}
+The response must not say that the pump is running yet. It only confirms that the request was accepted and saved.
+8.2 GET /api/command
+ESP32 → Backend
+Purpose: ESP32 checks for pending commands.
+Example:
+GET /api/command?deviceId=KP001
+Example response:
+{
+  "success": true,
+  "command": {
+    "commandId": "CMD001",
+    "command": "PUMP_ON",
+    "mode": "MANUAL",
+    "expiresAt": "2026-11-21T10:02:00Z"
+  }
+}
+If no command exists:
+{
+  "success": true,
+  "command": null
+}
+The backend must atomically claim or lease a command so repeated polling does not cause the same command to be executed more than once.
+8.3 POST /api/pump-ack
+ESP32 → Backend
+Purpose: Receive execution acknowledgement from the hardware.
+Example request:
+{
+  "deviceId": "KP001",
+  "commandId": "CMD001",
+  "status": "EXECUTED",
+  "pumpStatus": "ON"
+}
+Example response:
+{
+  "success": true,
+  "message": "Command acknowledgement received"
+}
+Possible command statuses:
+Status	Meaning
+PENDING	Waiting for device
+CLAIMED	Retrieved by device
+EXECUTED	Operation completed
+FAILED	Operation failed
+EXPIRED	Command expired
+REJECTED	Safety rules prevented execution
+If the tank is empty, for example, the ESP32 must reject a pump ON command and send a REJECTED acknowledgement with a reason.
+8.4 GET /api/pump/status
+Returns the last confirmed physical pump state, not merely the last requested command.
+Example:
+{
+  "success": true,
+  "pumpStatus": "ON",
+  "operatingMode": "MANUAL",
+  "lastAcknowledgedAt": "2026-11-21T10:01:00Z"
+}
+9. Irrigation History APIs
+GET /api/irrigation/history
+Purpose: Retrieve previous irrigation events.
+Example request:
+GET /api/irrigation/history?deviceId=KP001&range=7d
+Example response:
+{
+  "success": true,
+  "history": [
+    {
+      "startTime": "2026-11-21T09:00:00Z",
+      "endTime": "2026-11-21T09:05:00Z",
+      "duration": 300,
+      "operatingMode": "AUTO"
+    }
+  ]
+}
+Irrigation history should be generated from actual acknowledged pump activity, rather than merely from submitted commands.
+10. Analytics APIs
+GET /api/analytics
+Purpose: Provide data for graphs and agricultural analysis.
+Example request:
+GET /api/analytics?deviceId=KP001&range=7d
+Example response:
+{
+  "success": true,
+  "analytics": {
+    "averageSoilMoisture": 42,
+    "averageTemperature": 29,
+    "averageHumidity": 65,
+    "totalIrrigationEvents": 12,
+    "totalPumpRuntimeMinutes": 45
+  }
+}
+The backend can calculate these values using MongoDB aggregation pipelines.
+11. Machine Learning APIs
+The ML module will provide irrigation recommendations.
+Method	Endpoint	Purpose
+POST	/api/ml/predict	Generate prediction
+GET	/api/ml/history	Retrieve previous predictions
+11.1 POST /api/ml/predict
+Example request:
+{
+  "deviceId": "KP001",
+  "soilMoisture": 35,
+  "temperature": 30,
+  "humidity": 60
+}
+Example response:
+{
+  "success": true,
+  "prediction": {
+    "irrigationRequired": true,
+    "recommendation": "Irrigation recommended",
+    "modelVersion": "1.0"
+  }
+}
+The Node.js backend will validate the request and communicate with the separately hosted Python ML service. It will then store the prediction in MongoDB.
+11.2 GET /api/ml/history
+Returns previous irrigation predictions for a particular device.
+12. Health Check API
+GET /api/health
+Purpose: Check whether the backend is running and whether its database connection is available.
+Example response:
+{
+  "success": true,
+  "service": "KrishiPulse API",
+  "status": "HEALTHY",
+  "database": "CONNECTED"
+}
+Do not expose credentials, internal infrastructure details, or sensitive diagnostic information in this endpoint.
+13. API Authentication Structure
+We have two types of API clients.
+A. User authentication
+1.	React obtains a Supabase access token.
+2.	React sends the token in the Authorization header.
+3.	Node.js verifies the token with Supabase.
+4.	Node.js checks the user's permissions and device ownership.
+5.	Authorized request proceeds to MongoDB.
+B. Device authentication
+1.	ESP32 stores its unique device credential.
+2.	ESP32 sends the credential with each API request.
+3.	Node.js verifies the credential against the registered device.
+4.	Backend accepts or rejects the request.
+Example user request header:
+Authorization: Bearer SUPABASE_ACCESS_TOKEN
+Example hardware request header:
+Authorization: Bearer DEVICE_SECRET
+These represent two separate authentication mechanisms. Never use a user's Supabase token as the ESP32 device credential.
+14. Final API Folder Structure
+For Vercel's Node.js API routing, I recommend the following implementation structure:
+
+KrishiPulse/
+│
+├── api/
+│   │
+│   ├── health.js
+│   │
+│   ├── users/
+│   │   ├── sync.js
+│   │   └── me.js
+│   │
+│   ├── device/
+│   │   ├── index.js
+│   │   ├── register.js
+│   │   └── [deviceId].js
+│   │
+│   ├── sensor/
+│   │   ├── index.js
+│   │   ├── latest.js
+│   │   └── history.js
+│   │
+│   ├── dashboard.js
+│   │
+│   ├── pump/
+│   │   ├── index.js
+│   │   └── status.js
+│   │
+│   ├── command.js
+│   ├── pump-ack.js
+│   │
+│   ├── irrigation/
+│   │   └── history.js
+│   │
+│   ├── analytics.js
+│   │
+│   └── ml/
+│       ├── predict.js
+│       └── history.js
+│
+├── src/
+│   ├── components/
+│   ├── pages/
+│   ├── layouts/
+│   ├── hooks/
+│   ├── context/
+│   ├── services/
+│   └── assets/
+│
+├── lib/
+│   ├── mongodb.js
+│   ├── supabase.js
+│   ├── auth.js
+│   ├── device-auth.js
+│   └── validation.js
+│
+├── ml-service/
+│   ├── app.py
+│   ├── train.py
+│   ├── predict.py
+│   └── requirements.txt
+│
+├── hardware/
+│   └── esp32/
+│       └── krishipulse.ino
+│
+├── package.json
+├── vite.config.js
+└── README.md
+This is a proposed Vercel-friendly structure. The frontend src/ directory and build configuration will be set up so Vite produces the deployed frontend while Vercel serves the root api/ functions.
+15. API Response and Error Standards
+Every API should use a consistent response structure.
+Successful response:
+{
+  "success": true,
+  "message": "Data retrieved successfully",
+  "data": {}
+}
+Error response:
+{
+  "success": false,
+  "message": "Unauthorized access",
+  "error": {
+    "code": "UNAUTHORIZED"
+  }
+}
+Recommended HTTP status codes:
+Code	Meaning
+200	Successful request
+201	Resource created
+400	Invalid request
+401	Authentication required
+403	Permission denied
+404	Resource not found
+409	Conflict
+422	Validation failed
+429	Too many requests
+500	Internal server error
+503	Service unavailable
